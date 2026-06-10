@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MediAI - Your intelligent medical assistant for prescription tracking, medication management, and personalized health guidance." />
+  <title>MediAI — Intelligent Medical Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Animated Background -->
+  <div class="bg-layer" aria-hidden="true">
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+    <canvas id="ecg-canvas" class="ecg-canvas"></canvas>
+  </div>
+
+  <!-- Header -->
+  <header class="header" id="main-header">
+    <nav class="nav-container">
+      <div class="nav-logo">
+        <div class="logo-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2C7.373 2 2 7.373 2 14s5.373 12 12 12 12-5.373 12-12S20.627 2 14 2z" fill="url(#logoGrad)"/>
+            <path d="M11 10h6v3h3v6h-3v3h-6v-3H8v-6h3z" fill="white" opacity="0.9"/>
+            <defs>
+              <linearGradient id="logoGrad" x1="2" y1="2" x2="26" y2="26" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#00d4ff"/>
+                <stop offset="100%" stop-color="#0066ff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="logo-text">Medi<span class="logo-accent">AI</span></span>
+        <span class="logo-badge">Beta</span>
+      </div>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#" class="nav-link active" id="nav-chat" onclick="switchView('chat')">💬 Chat</a></li>
+        <li><a href="#" class="nav-link" id="nav-prescriptions" onclick="switchView('prescriptions')">📋 Prescriptions</a></li>
+        <li><a href="#" class="nav-link" id="nav-medications" onclick="switchView('medications')">💊 Medications</a></li>
+        <li><a href="#" class="nav-link" id="nav-profile" onclick="switchView('profile')">👤 Profile</a></li>
+      </ul>
+      <button class="nav-settings-btn" id="settings-btn" onclick="showSettings()">
+        ⚙️ Settings
+      </button>
+      <button class="nav-emergency-btn" id="emergency-btn" onclick="showEmergency()">
+        <span class="pulse-dot"></span> Emergency
+      </button>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Emergency Modal -->
+  <div class="modal-overlay" id="emergency-modal" role="dialog" aria-modal="true" aria-label="Emergency Alert">
+    <div class="emergency-modal-content">
+      <div class="emergency-icon">🚨</div>
+      <h2>EMERGENCY ALERT</h2>
+      <p>If you or someone else is experiencing a medical emergency, please act immediately:</p>
+      <div class="emergency-actions">
+        <a href="tel:112" class="emergency-call-btn" id="call-112">📞 Call 112 (India)</a>
+        <a href="tel:911" class="emergency-call-btn" id="call-911">📞 Call 911 (US)</a>
+        <a href="tel:999" class="emergency-call-btn" id="call-999">📞 Call 999 (UK)</a>
+      </div>
+      <p class="emergency-note">🏥 Or visit your nearest hospital Emergency Room immediately.</p>
+      <button class="close-modal-btn" id="close-emergency" onclick="closeEmergency()">Close</button>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true" aria-label="App Settings">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ App Settings</h3>
+      </div>
+      <div class="form-group" style="margin-top:16px;">
+        <label for="settings-api-key" style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--text-secondary);">OpenRouter API Key (Optional)</label>
+        <input type="password" id="settings-api-key" class="form-input" placeholder="Paste sk-or-v1-... key" style="width:100%;" />
+        <small style="color:var(--text-muted);display:block;margin-top:6px;font-size:0.75rem;line-height:1.4;">
+          Your key is saved locally in your browser's localStorage. Leave empty to use the default shared key.
+        </small>
+      </div>
+      <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:12px;">
+        <button type="button" class="secondary-btn" onclick="closeSettings()">Cancel</button>
+        <button type="button" class="primary-btn" onclick="saveSettings()">💾 Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- CHAT VIEW -->
+    <section class="view active" id="view-chat">
+      <div class="chat-layout">
+        <!-- Sidebar -->
+        <aside class="chat-sidebar" id="chat-sidebar">
+          <div class="sidebar-header">
+            <h3>🏥 Health Session</h3>
+            <button class="new-chat-btn" id="new-chat-btn" onclick="startNewChat()">+ New</button>
+          </div>
+
+          <!-- Patient Profile Card -->
+          <div class="patient-card" id="patient-card">
+            <div class="patient-avatar" id="patient-avatar">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="12" r="6" fill="#00d4ff" opacity="0.8"/>
+                <path d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#00d4ff" stroke-width="2" opacity="0.6"/>
+              </svg>
+            </div>
+            <div class="patient-info">
+              <p class="patient-name" id="patient-name-display">New Patient</p>
+              <p class="patient-meta" id="patient-meta-display">Profile not set</p>
+            </div>
+          </div>
+
+          <!-- Quick Stats -->
+          <div class="quick-stats" id="quick-stats">
+            <div class="stat-item">
+              <span class="stat-icon">📋</span>
+              <div>
+                <p class="stat-value" id="stat-prescriptions">0</p>
+                <p class="stat-label">Prescriptions</p>
+              </div>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">💊</span>
+              <div>
+                <p class="stat-value" id="stat-medications">0</p>
+                <p class="stat-label">Medications</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's Medications -->
+          <div class="today-meds-card" id="today-meds-card">
+            <h4>⏰ Today's Schedule</h4>
+            <div class="meds-timeline" id="meds-timeline">
+              <p class="no-meds-msg">No medications scheduled yet</p>
+            </div>
+          </div>
+
+          <!-- Suggested Prompts -->
+          <div class="suggested-prompts">
+            <h4>💡 Quick Questions</h4>
+            <div class="prompt-chips" id="prompt-chips">
+              <button class="prompt-chip" onclick="sendQuickPrompt('I have a prescription to analyze')">📷 Analyze prescription</button>
+              <button class="prompt-chip" onclick="sendQuickPrompt('What are cheaper generic alternatives for my medications?')">💰 Generic alternatives</button>
+              <button class="prompt-chip" onclick="sendQuickPrompt('Create a diet plan for my condition')">🥗 Diet plan</button>
+              <button class="prompt-chip" onclick="sendQuickPrompt('What are the side effects of my medications?')">⚠️ Side effects</button>
+              <button class="prompt-chip" onclick="sendQuickPrompt('When should I take my medicines today?')">⏰ Medicine schedule</button>
+            </div>
+          </div>
+
+          <div class="disclaimer-mini">
+            <p>⚕️ For informational purposes only. Always consult your doctor.</p>
+          </div>
+        </aside>
+
+        <!-- Chat Main -->
+        <div class="chat-main">
+          <!-- Chat Header -->
+          <div class="chat-header">
+            <div class="chat-header-info">
+              <div class="ai-status-indicator">
+                <span class="status-dot online"></span>
+                <span>MediAI Assistant</span>
+              </div>
+              <p class="chat-header-sub">Your intelligent health companion</p>
+            </div>
+            <div class="chat-header-actions">
+              <button class="icon-btn" id="upload-rx-btn" title="Upload Prescription" onclick="triggerFileUpload()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </button>
+              <button class="icon-btn" id="clear-chat-btn" title="Clear chat" onclick="clearChat()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Messages Area -->
+          <div class="chat-messages" id="chat-messages" role="log" aria-live="polite">
+            <!-- Welcome Message -->
+            <div class="message ai-message welcome-message" id="welcome-msg">
+              <div class="message-avatar ai-avatar">
+                <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+                  <circle cx="14" cy="14" r="14" fill="url(#aiAvatarGrad)"/>
+                  <path d="M10 11h8v3h3v4h-3v3h-8v-3H7v-4h3z" fill="white" opacity="0.9"/>
+                  <defs>
+                    <linearGradient id="aiAvatarGrad" x1="0" y1="0" x2="28" y2="28">
+                      <stop offset="0%" stop-color="#00d4ff"/>
+                      <stop offset="100%" stop-color="#0066ff"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <div class="message-content">
+                <div class="message-bubble">
+                  <div class="welcome-header">
+                    <h3>👋 Welcome to MediAI!</h3>
+                    <p>I'm your intelligent medical assistant, here to help you manage your health systematically. Here's what I can do:</p>
+                  </div>
+                  <div class="capability-grid">
+                    <div class="capability-card">
+                      <span>📋</span>
+                      <strong>Prescription Analysis</strong>
+                      <p>Upload & analyze prescriptions</p>
+                    </div>
+                    <div class="capability-card">
+                      <span>💊</span>
+                      <strong>Medicine Schedule</strong>
+                      <p>Personalized timing & reminders</p>
+                    </div>
+                    <div class="capability-card">
+                      <span>💰</span>
+                      <strong>Cost Savings</strong>
+                      <p>Generic alternatives & pricing</p>
+                    </div>
+                    <div class="capability-card">
+                      <span>🍽️</span>
+                      <strong>Diet Plans</strong>
+                      <p>Condition-specific nutrition</p>
+                    </div>
+                  </div>
+                  <p class="welcome-cta">How can I assist you today? You can start by uploading a prescription or asking any health question!</p>
+                </div>
+                <span class="message-time">Just now</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upload Preview -->
+          <div class="upload-preview" id="upload-preview" style="display:none;">
+            <div class="upload-preview-inner">
+              <img id="preview-img" src="" alt="Prescription preview" />
+              <div class="upload-preview-info">
+                <p id="preview-filename">prescription.jpg</p>
+                <button class="remove-upload" onclick="removeUpload()">✕ Remove</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="chat-input-area" id="chat-input-area">
+            <input type="file" id="file-input" accept="image/*,.pdf" style="display:none;" onchange="handleFileUpload(event)" />
+            <div class="input-wrapper">
+              <button class="attach-btn" id="attach-btn" title="Attach prescription" onclick="triggerFileUpload()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                </svg>
+              </button>
+              <textarea
+                id="chat-input"
+                class="chat-input"
+                placeholder="Ask about your medications, prescriptions, diet plans..."
+                rows="1"
+                onkeydown="handleInputKeydown(event)"
+                oninput="autoResize(this)"
+                aria-label="Type your health question"
+              ></textarea>
+              <button class="send-btn" id="send-btn" onclick="sendMessage()" aria-label="Send message">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+            <p class="input-disclaimer">⚕️ MediAI provides informational guidance only — always consult a licensed physician for medical decisions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRESCRIPTIONS VIEW -->
+    <section class="view" id="view-prescriptions">
+      <div class="page-container">
+        <div class="page-header">
+          <div>
+            <h1>📋 Prescription History</h1>
+            <p>All your prescriptions in one place, analyzed and organized</p>
+          </div>
+          <button class="primary-btn" id="add-prescription-btn" onclick="triggerFileUpload(); switchView('chat')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Prescription
+          </button>
+        </div>
+
+        <div class="prescriptions-grid" id="prescriptions-grid">
+          <div class="empty-state" id="prescriptions-empty">
+            <div class="empty-icon">📋</div>
+            <h3>No Prescriptions Yet</h3>
+            <p>Upload your first prescription to get started with AI-powered analysis</p>
+            <button class="primary-btn" onclick="switchView('chat'); setTimeout(()=>triggerFileUpload(),300)">Upload Prescription</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEDICATIONS VIEW -->
+    <section class="view" id="view-medications">
+      <div class="page-container">
+        <div class="page-header">
+          <div>
+            <h1>💊 Medication Tracker</h1>
+            <p>Your current medications with schedule and alternatives</p>
+          </div>
+          <button class="primary-btn" id="add-medication-btn" onclick="showAddMedModal()">+ Add Medication</button>
+        </div>
+
+        <!-- Medication Stats Bar -->
+        <div class="med-stats-bar" id="med-stats-bar">
+          <div class="med-stat-card">
+            <span class="med-stat-num" id="total-meds-count">0</span>
+            <span class="med-stat-label">Active Medications</span>
+          </div>
+          <div class="med-stat-card">
+            <span class="med-stat-num" id="morning-meds-count">0</span>
+            <span class="med-stat-label">Morning Doses</span>
+          </div>
+          <div class="med-stat-card">
+            <span class="med-stat-num" id="evening-meds-count">0</span>
+            <span class="med-stat-label">Evening Doses</span>
+          </div>
+          <div class="med-stat-card">
+            <span class="med-stat-num" id="refill-alert-count">0</span>
+            <span class="med-stat-label">Refill Alerts</span>
+          </div>
+        </div>
+
+        <div class="medications-list" id="medications-list">
+          <div class="empty-state" id="medications-empty">
+            <div class="empty-icon">💊</div>
+            <h3>No Medications Tracked</h3>
+            <p>Add medications or analyze a prescription to start tracking</p>
+            <button class="primary-btn" onclick="showAddMedModal()">Add Medication</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFILE VIEW -->
+    <section class="view" id="view-profile">
+      <div class="page-container">
+        <div class="page-header">
+          <div>
+            <h1>👤 Patient Profile</h1>
+            <p>Your health profile helps MediAI personalize recommendations</p>
+          </div>
+        </div>
+
+        <div class="profile-grid">
+          <div class="profile-card" id="profile-info-card">
+            <h3>🏥 Personal Information</h3>
+            <form class="profile-form" id="profile-form" onsubmit="saveProfile(event)">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="patient-name">Full Name</label>
+                  <input type="text" id="patient-name" class="form-input" placeholder="Enter your name" />
+                </div>
+                <div class="form-group">
+                  <label for="patient-age">Age</label>
+                  <input type="number" id="patient-age" class="form-input" placeholder="Age" min="1" max="120" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="patient-gender">Gender</label>
+                  <select id="patient-gender" class="form-input">
+                    <option value="">Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="patient-blood">Blood Group</label>
+                  <select id="patient-blood" class="form-input">
+                    <option value="">Select</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="patient-weight">Weight (kg)</label>
+                  <input type="number" id="patient-weight" class="form-input" placeholder="Weight in kg" />
+                </div>
+                <div class="form-group">
+                  <label for="patient-height">Height (cm)</label>
+                  <input type="number" id="patient-height" class="form-input" placeholder="Height in cm" />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="patient-conditions">Chronic Conditions</label>
+                <textarea id="patient-conditions" class="form-input" rows="2" placeholder="e.g., Diabetes Type 2, Hypertension, Asthma..."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="patient-allergies">Known Allergies</label>
+                <textarea id="patient-allergies" class="form-input" rows="2" placeholder="e.g., Penicillin, Sulfa drugs, Aspirin..."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="patient-lifestyle">Lifestyle Notes</label>
+                <textarea id="patient-lifestyle" class="form-input" rows="2" placeholder="e.g., vegetarian, exercises daily, non-smoker..."></textarea>
+              </div>
+
+              <button type="submit" class="primary-btn full-width" id="save-profile-btn">💾 Save Profile</button>
+            </form>
+          </div>
+
+          <div class="profile-right-col">
+            <!-- Health Summary Card -->
+            <div class="profile-card" id="health-summary-card">
+              <h3>📊 Health Summary</h3>
+              <div class="health-metrics" id="health-metrics">
+                <div class="metric-item">
+                  <span class="metric-icon">⚖️</span>
+                  <div>
+                    <p class="metric-label">BMI</p>
+                    <p class="metric-value" id="bmi-display">—</p>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-icon">🩸</span>
+                  <div>
+                    <p class="metric-label">Blood Group</p>
+                    <p class="metric-value" id="blood-display">—</p>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-icon">📋</span>
+                  <div>
+                    <p class="metric-label">Conditions</p>
+                    <p class="metric-value" id="conditions-display">None</p>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-icon">⚠️</span>
+                  <div>
+                    <p class="metric-label">Allergies</p>
+                    <p class="metric-value" id="allergies-display">None known</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Privacy Disclaimer -->
+            <div class="profile-card privacy-card" id="privacy-card">
+              <h3>🔒 Privacy Notice</h3>
+              <p>Your health data is stored locally in your browser and never sent to any server without your explicit consent.</p>
+              <p>MediAI does not store or share your personal health information.</p>
+              <button class="danger-btn" id="clear-data-btn" onclick="clearAllData()">🗑️ Clear All Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Add Medication Modal -->
+  <div class="modal-overlay" id="add-med-modal" role="dialog" aria-modal="true">
+    <div class="modal-content" id="add-med-modal-content">
+      <div class="modal-header">
+        <h3>💊 Add Medication</h3>
+        <button class="close-btn" id="close-med-modal" onclick="closeAddMedModal()">✕</button>
+      </div>
+      <form class="med-form" id="add-med-form" onsubmit="addMedication(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="med-name">Medicine Name *</label>
+            <input type="text" id="med-name" class="form-input" placeholder="e.g., Metformin 500mg" required />
+          </div>
+          <div class="form-group">
+            <label for="med-dosage">Dosage *</label>
+            <input type="text" id="med-dosage" class="form-input" placeholder="e.g., 500mg" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="med-frequency">Frequency *</label>
+            <select id="med-frequency" class="form-input" required>
+              <option value="">Select frequency</option>
+              <option value="Once daily">Once daily</option>
+              <option value="Twice daily">Twice daily</option>
+              <option value="Three times daily">Three times daily</option>
+              <option value="Four times daily">Four times daily</option>
+              <option value="Every 6 hours">Every 6 hours</option>
+              <option value="Every 8 hours">Every 8 hours</option>
+              <option value="Weekly">Weekly</option>
+              <option value="As needed">As needed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="med-timing">Timing</label>
+            <select id="med-timing" class="form-input">
+              <option value="After food">After food</option>
+              <option value="Before food">Before food</option>
+              <option value="With food">With food</option>
+              <option value="At bedtime">At bedtime</option>
+              <option value="On empty stomach">On empty stomach</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="med-condition">For Condition</label>
+            <input type="text" id="med-condition" class="form-input" placeholder="e.g., Diabetes, Hypertension" />
+          </div>
+          <div class="form-group">
+            <label for="med-duration">Duration</label>
+            <input type="text" id="med-duration" class="form-input" placeholder="e.g., 30 days, Ongoing" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="med-notes">Notes</label>
+          <textarea id="med-notes" class="form-input" rows="2" placeholder="Special instructions, side effects to watch..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" onclick="closeAddMedModal()">Cancel</button>
+          <button type="submit" class="primary-btn" id="save-med-btn">💾 Save Medication</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toast-container" aria-live="assertive"></div>
+
+  <script src="app.js?v=5.0"></script>
+</body>
+</html>
